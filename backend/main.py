@@ -55,18 +55,14 @@ def predict(data: InputData):
     try:
         df = pd.DataFrame([data.dict()])
 
-        # --- ВАЖНО: как было у тебя ---
-        full_df = pd.DataFrame([{col: None for col in feature_columns}])
+        # создаём df с нужными колонками
+        full_df = df.reindex(columns=feature_columns)
 
-        for col in df.columns:
-            if col in full_df.columns:
-                full_df.at[0, col] = df.at[0, col]
-
-        # ❗ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
-        # только категориальные → строки
+        # ❗ ЧИСЛОВЫЕ оставляем как есть
+        # ❗ категориальные → строки только если не None
         for col in full_df.columns:
             if full_df[col].dtype == "object":
-                full_df[col] = full_df[col].fillna("missing").astype(str)
+                full_df[col] = full_df[col].fillna("missing")
 
         # --- предикт ---
         drop_pred = price_drop_model.predict(full_df)[0]
