@@ -43,6 +43,8 @@ class InputData(BaseModel):
     delivery_region: str
     trade_type: str
     electronic_trade_mode: Optional[str] = None
+    trading_platform: Optional[str] = None
+    delivery_city: Optional[str] = None
 
 
 @app.get("/")
