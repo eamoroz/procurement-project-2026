@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Прогноз торгов</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            margin-top: 50px;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        input, select, button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            background: black;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Прогноз торгов</h2>
+
+    <input id="price" placeholder="НМЦК (руб)" />
+
+    <select id="region">
+        <option>Москва</option>
+        <option>Санкт-Петербург</option>
+        <option>Другой регион</option>
+    </select>
+
+    <select id="trade">
+        <option>Электронный аукцион</option>
+        <option>Конкурс</option>
+    </select>
+
+    <button onclick="predict()">Рассчитать</button>
+
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+async function predict() {
+    const data = {
+        customer_price_rub: Number(document.getElementById("price").value),
+        delivery_region: document.getElementById("region").value,
+        trade_type: document.getElementById("trade").value,
+        electronic_trade_mode: "Да"
+    };
+
+    const res = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    const result = await res.json();
+
+    document.getElementById("result").innerHTML = `
+        💰 Финальная цена: ${Math.round(result.predicted_final_price).toLocaleString()} ₽<br>
+        📉 Снижение: ${(result.predicted_drop_pct * 100).toFixed(2)}%
+    `;
+}
+</script>
+
+</body>
+</html>
