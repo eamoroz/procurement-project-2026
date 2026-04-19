@@ -66,6 +66,3 @@ def predict(data: InputData):
         "predicted_drop_pct": float(drop_pred),
         "predicted_final_price": float(final_price)
     }
-
-    except Exception as e:
-        return {"error": str(e)}
