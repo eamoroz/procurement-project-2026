@@ -19,24 +19,15 @@ app.add_middleware(
 
 BASE_DIR = os.path.dirname(__file__)
 
-# --- загрузка модели ---
-price_drop_model = CatBoostRegressor()
-price_drop_model.load_model(
-    os.path.join(BASE_DIR, "model/catboost_price_drop.cbm")
-)
+# --- модель ---
+model = CatBoostRegressor()
+model.load_model(os.path.join(BASE_DIR, "model/catboost_price_drop.cbm"))
 
-# --- загрузка фичей ---
+# --- фичи ---
 with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
     feature_columns = json.load(f)
 
-# --- какие фичи категориальные ---
-CATEGORICAL_FEATURES = [
-    "delivery_region",
-    "trade_type",
-    "electronic_trade_mode"
-]
 
-# --- вход ---
 class InputData(BaseModel):
     customer_price_rub: float
     delivery_region: str
@@ -54,29 +45,38 @@ def predict(data: InputData):
     try:
         input_dict = data.dict()
 
-        # создаём полный DF
+        # создаём полный df
         full_df = pd.DataFrame([{col: None for col in feature_columns}])
 
-        # заполняем входные данные
-        for col in input_dict:
+        # заполняем вход
+        for col, value in input_dict.items():
             if col in full_df.columns:
-                full_df.at[0, col] = input_dict[col]
+                full_df.at[0, col] = value
 
-        # корректные типы
+        # 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ
         for col in full_df.columns:
-            if col in CATEGORICAL_FEATURES:
-                full_df[col] = full_df[col].fillna("missing").astype(str)
+            val = full_df.at[0, col]
+
+            if val is None:
+                full_df.at[0, col] = "missing"
+            elif isinstance(val, (int, float)):
+                # числа оставляем числами
+                full_df.at[0, col] = val
             else:
-                full_df[col] = pd.to_numeric(full_df[col], errors="coerce").fillna(0)
+                # всё остальное → строка
+                full_df.at[0, col] = str(val)
+
+        # 👉 отдельно приводим DataFrame
+        full_df = full_df.apply(pd.to_numeric, errors="ignore")
 
         # предсказание
-        drop_pred = price_drop_model.predict(full_df)[0]
-        drop_pred = max(drop_pred, 0)
+        pred = model.predict(full_df)[0]
+        pred = max(pred, 0)
 
-        final_price = data.customer_price_rub * (1 - drop_pred)
+        final_price = data.customer_price_rub * (1 - pred)
 
         return {
-            "predicted_drop_pct": float(drop_pred),
+            "predicted_drop_pct": float(pred),
             "predicted_final_price": float(final_price)
         }
 
