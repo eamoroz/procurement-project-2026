@@ -55,16 +55,23 @@ def predict(data: InputData):
     try:
         df = pd.DataFrame([data.dict()])
 
-        # создаём df с нужными колонками
+        # создаём полный df
         full_df = df.reindex(columns=feature_columns)
 
-        # ❗ ЧИСЛОВЫЕ оставляем как есть
-        # ❗ категориальные → строки только если не None
-        for col in full_df.columns:
-            if full_df[col].dtype == "object":
-                full_df[col] = full_df[col].fillna("missing")
+        # ❗ список категориальных (ВАЖНО)
+        cat_cols = ["delivery_region", "trade_type", "electronic_trade_mode"]
 
-        # --- предикт ---
+        for col in full_df.columns:
+            if col in cat_cols:
+                # категориальные → строки
+                full_df[col] = full_df[col].astype(str).fillna("missing")
+            else:
+                # числовые → числа
+                full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
+
+        # если вдруг остались NaN в числах → заменим
+        full_df = full_df.fillna(0)
+
         drop_pred = price_drop_model.predict(full_df)[0]
         drop_pred = max(drop_pred, 0)
 
