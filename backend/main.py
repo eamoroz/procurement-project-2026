@@ -56,26 +56,19 @@ def predict(data: InputData):
         df = pd.DataFrame([data.dict()])
         full_df = df.reindex(columns=feature_columns)
 
-        num_cols = [
-            "customer_price_rub",
-            "bid_security_rub",
-            "bid_security_pct",
-            "contract_security_rub",
-            "contract_security_pct",
-            "publication_month",
-            "publication_weekday",
-            "publication_hour"
-        ]
+        # 🔥 получаем реальные категориальные фичи из модели
+        cat_feature_indices = price_drop_model.get_cat_feature_indices()
+        cat_cols = [feature_columns[i] for i in cat_feature_indices]
 
         for col in full_df.columns:
-            if col in num_cols:
-                # числовые
-                full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
-                full_df[col] = full_df[col].fillna(0)
-            else:
-                # категориальные
+            if col in cat_cols:
+                # категориальные → строки
                 full_df[col] = full_df[col].astype(str)
                 full_df[col] = full_df[col].fillna("unknown")
+            else:
+                # числовые → строго числа
+                full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
+                full_df[col] = full_df[col].fillna(0)
 
         drop_pred = price_drop_model.predict(full_df)[0]
         drop_pred = max(drop_pred, 0)
