@@ -18,10 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- базовая директория (ВАЖНО для Amvera) ---
 BASE_DIR = os.path.dirname(__file__)
 
-# --- загрузка моделей ---
+# --- модели ---
 price_drop_model = CatBoostRegressor()
 price_drop_model.load_model(
     os.path.join(BASE_DIR, "model/catboost_price_drop.cbm")
@@ -32,14 +31,14 @@ final_price_model.load_model(
     os.path.join(BASE_DIR, "model/catboost_final_price.cbm")
 )
 
-# --- загрузка фичей ---
+# --- фичи ---
 with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
     feature_columns = json.load(f)
 
 with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
     final_feature_columns = json.load(f)
 
-# --- входные данные ---
+
 class InputData(BaseModel):
     customer_price_rub: float
     delivery_region: str
@@ -47,37 +46,36 @@ class InputData(BaseModel):
     electronic_trade_mode: Optional[str] = None
 
 
-# --- просто проверка ---
 @app.get("/")
 def root():
     return {"status": "ok"}
 
 
-# --- основной endpoint ---
 @app.post("/predict")
 def predict(data: InputData):
-    
     try:
         df = pd.DataFrame([data.dict()])
         
-        # создаём полный DataFrame (КАК У ТЕБЯ БЫЛО)
         full_df = pd.DataFrame([{col: None for col in feature_columns}])
-        
-        # заполняем известные значения
+
+        # заполняем вход
         for col in df.columns:
             if col in full_df.columns:
                 full_df.at[0, col] = df.at[0, col]
-        
-        # ВАЖНО: возвращаем твою логику
+
+        # 🔥 ВАЖНО: правильная обработка типов
         for col in full_df.columns:
-            full_df[col] = full_df[col].astype(str).fillna("missing")
-        
-        # --- предсказание ---
+            if full_df[col].dtype == "object":
+                full_df[col] = full_df[col].fillna("missing").astype(str)
+            else:
+                full_df[col] = full_df[col].fillna(0)
+
+        # --- predict ---
         drop_pred = price_drop_model.predict(full_df)[0]
         drop_pred = max(drop_pred, 0)
-        
+
         final_price = data.customer_price_rub * (1 - drop_pred)
-        
+
         return {
             "predicted_drop_pct": float(drop_pred),
             "predicted_final_price": float(final_price)
