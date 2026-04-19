@@ -18,11 +18,19 @@ app.add_middleware(
 )
 
 # --- загрузка моделей ---
+import os
+
+BASE_DIR = os.path.dirname(__file__)
+
 price_drop_model = CatBoostRegressor()
-price_drop_model.load_model("model/catboost_price_drop.cbm")
+price_drop_model.load_model(
+    os.path.join(BASE_DIR, "model/catboost_price_drop.cbm")
+)
 
 final_price_model = CatBoostRegressor()
-final_price_model.load_model("model/catboost_final_price.cbm")
+final_price_model.load_model(
+    os.path.join(BASE_DIR, "model/catboost_final_price.cbm")
+)
 
 # --- загрузка фичей ---
 with open("model/feature_columns.json") as f:
