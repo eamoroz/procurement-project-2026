@@ -9,7 +9,7 @@ import os
 
 app = FastAPI()
 
-# --- CORS (чтобы работал frontend) ---
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- базовая директория ---
+# --- базовая директория (ВАЖНО для Amvera) ---
 BASE_DIR = os.path.dirname(__file__)
 
 # --- загрузка моделей ---
@@ -47,7 +47,7 @@ class InputData(BaseModel):
     electronic_trade_mode: Optional[str] = None
 
 
-# --- тестовый endpoint (чтобы проверить, что сервер жив) ---
+# --- просто проверка ---
 @app.get("/")
 def root():
     return {"status": "ok"}
@@ -58,33 +58,26 @@ def root():
 def predict(data: InputData):
     
     try:
-        # вход → DataFrame
         df = pd.DataFrame([data.dict()])
-
-        # создаём DataFrame с нужными колонками
-        full_df = pd.DataFrame(columns=feature_columns)
-        full_df.loc[0] = None
-
-        # заполняем входные значения
+        
+        # создаём полный DataFrame (КАК У ТЕБЯ БЫЛО)
+        full_df = pd.DataFrame([{col: None for col in feature_columns}])
+        
+        # заполняем известные значения
         for col in df.columns:
-            if col in feature_columns:
-                full_df.loc[0, col] = df.loc[0, col]
-
-        # заполняем пропуски
-        full_df = full_df.fillna("missing")
-
-        # приводим к строкам (важно для CatBoost)
-        full_df = full_df.astype(str)
-
-        # гарантируем порядок колонок
-        full_df = full_df[feature_columns]
-
+            if col in full_df.columns:
+                full_df.at[0, col] = df.at[0, col]
+        
+        # ВАЖНО: возвращаем твою логику
+        for col in full_df.columns:
+            full_df[col] = full_df[col].astype(str).fillna("missing")
+        
         # --- предсказание ---
         drop_pred = price_drop_model.predict(full_df)[0]
-        drop_pred = max(float(drop_pred), 0)
-
+        drop_pred = max(drop_pred, 0)
+        
         final_price = data.customer_price_rub * (1 - drop_pred)
-
+        
         return {
             "predicted_drop_pct": float(drop_pred),
             "predicted_final_price": float(final_price)
