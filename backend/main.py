@@ -55,10 +55,8 @@ def predict(data: InputData):
     try:
         df = pd.DataFrame([data.dict()])
 
-        # создаём полный df
         full_df = df.reindex(columns=feature_columns)
 
-        # ❗ список категориальных (ВАЖНО)
         cat_cols = ["delivery_region", "trade_type", "electronic_trade_mode"]
 
         for col in full_df.columns:
@@ -68,9 +66,7 @@ def predict(data: InputData):
             else:
                 # числовые → числа
                 full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
-
-        # если вдруг остались NaN в числах → заменим
-        full_df = full_df.fillna(0)
+                full_df[col] = full_df[col].fillna(0)
 
         drop_pred = price_drop_model.predict(full_df)[0]
         drop_pred = max(drop_pred, 0)
