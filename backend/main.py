@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- пути ---
+# --- базовый путь ---
 BASE_DIR = os.path.dirname(__file__)
 
 # --- загрузка моделей ---
@@ -44,7 +44,7 @@ with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
 # --- UI (главная страница) ---
 @app.get("/")
 def root():
-    return FileResponse("frontend/index.html")
+    return FileResponse(os.path.join(BASE_DIR, "../frontend/index.html"))
 
 
 # --- входные данные ---
@@ -69,7 +69,7 @@ def predict(data: InputData):
         if col in full_df.columns:
             full_df.at[0, col] = df.at[0, col]
 
-    # ВСЁ приводим к строкам (важно для CatBoost)
+    # приводим к строкам (важно для CatBoost)
     for col in full_df.columns:
         full_df[col] = full_df[col].astype(str).fillna("missing")
 
