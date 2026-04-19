@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
 import json
@@ -10,7 +9,7 @@ import os
 
 app = FastAPI()
 
-# --- CORS ---
+# --- CORS (чтобы работал frontend) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- базовый путь ---
+# --- базовая директория ---
 BASE_DIR = os.path.dirname(__file__)
 
 # --- загрузка моделей ---
@@ -40,13 +39,6 @@ with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
 with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
     final_feature_columns = json.load(f)
 
-
-# --- UI (главная страница) ---
-@app.get("/")
-def root():
-    return FileResponse(os.path.join(BASE_DIR, "../frontend/index.html"))
-
-
 # --- входные данные ---
 class InputData(BaseModel):
     customer_price_rub: float
@@ -55,31 +47,48 @@ class InputData(BaseModel):
     electronic_trade_mode: Optional[str] = None
 
 
-# --- endpoint ---
+# --- тестовый endpoint (чтобы проверить, что сервер жив) ---
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
+
+# --- основной endpoint ---
 @app.post("/predict")
 def predict(data: InputData):
+    
+    try:
+        # вход → DataFrame
+        df = pd.DataFrame([data.dict()])
 
-    df = pd.DataFrame([data.dict()])
+        # создаём DataFrame с нужными колонками
+        full_df = pd.DataFrame(columns=feature_columns)
+        full_df.loc[0] = None
 
-    # создаём полный DataFrame
-    full_df = pd.DataFrame([{col: None for col in feature_columns}])
+        # заполняем входные значения
+        for col in df.columns:
+            if col in feature_columns:
+                full_df.loc[0, col] = df.loc[0, col]
 
-    # заполняем известные значения
-    for col in df.columns:
-        if col in full_df.columns:
-            full_df.at[0, col] = df.at[0, col]
+        # заполняем пропуски
+        full_df = full_df.fillna("missing")
 
-    # приводим к строкам (важно для CatBoost)
-    for col in full_df.columns:
-        full_df[col] = full_df[col].astype(str).fillna("missing")
+        # приводим к строкам (важно для CatBoost)
+        full_df = full_df.astype(str)
 
-    # --- предсказание ---
-    drop_pred = price_drop_model.predict(full_df)[0]
-    drop_pred = max(drop_pred, 0)
+        # гарантируем порядок колонок
+        full_df = full_df[feature_columns]
 
-    final_price = data.customer_price_rub * (1 - drop_pred)
+        # --- предсказание ---
+        drop_pred = price_drop_model.predict(full_df)[0]
+        drop_pred = max(float(drop_pred), 0)
 
-    return {
-        "predicted_drop_pct": float(drop_pred),
-        "predicted_final_price": float(final_price)
-    }
+        final_price = data.customer_price_rub * (1 - drop_pred)
+
+        return {
+            "predicted_drop_pct": float(drop_pred),
+            "predicted_final_price": float(final_price)
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
