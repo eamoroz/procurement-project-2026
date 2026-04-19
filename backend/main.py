@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from catboost import CatBoostRegressor
-import json
 import pandas as pd
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +8,6 @@ import os
 
 app = FastAPI()
 
-# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,14 +29,8 @@ final_price_model.load_model(
     os.path.join(BASE_DIR, "model/catboost_final_price.cbm")
 )
 
-# --- фичи ---
-with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
-    feature_columns = json.load(f)
 
-with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
-    final_feature_columns = json.load(f)
-
-
+# --- вход ---
 class InputData(BaseModel):
     customer_price_rub: float
     delivery_region: str
@@ -54,24 +46,11 @@ def root():
 @app.post("/predict")
 def predict(data: InputData):
     try:
+        # 👉 просто используем вход как есть
         df = pd.DataFrame([data.dict()])
-        
-        full_df = pd.DataFrame([{col: None for col in feature_columns}])
 
-        # заполняем вход
-        for col in df.columns:
-            if col in full_df.columns:
-                full_df.at[0, col] = df.at[0, col]
-
-        # 🔥 ВАЖНО: правильная обработка типов
-        for col in full_df.columns:
-            if full_df[col].dtype == "object":
-                full_df[col] = full_df[col].fillna("missing").astype(str)
-            else:
-                full_df[col] = full_df[col].fillna(0)
-
-        # --- predict ---
-        drop_pred = price_drop_model.predict(full_df)[0]
+        # 👉 никаких missing, никаких 100 колонок
+        drop_pred = price_drop_model.predict(df)[0]
         drop_pred = max(drop_pred, 0)
 
         final_price = data.customer_price_rub * (1 - drop_pred)
