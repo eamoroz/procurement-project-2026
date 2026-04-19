@@ -54,19 +54,28 @@ def root():
 def predict(data: InputData):
     try:
         df = pd.DataFrame([data.dict()])
-
         full_df = df.reindex(columns=feature_columns)
 
-        cat_cols = ["delivery_region", "trade_type", "electronic_trade_mode"]
+        num_cols = [
+            "customer_price_rub",
+            "bid_security_rub",
+            "bid_security_pct",
+            "contract_security_rub",
+            "contract_security_pct",
+            "publication_month",
+            "publication_weekday",
+            "publication_hour"
+        ]
 
         for col in full_df.columns:
-            if col in cat_cols:
-                # категориальные → строки
-                full_df[col] = full_df[col].astype(str).fillna("missing")
-            else:
-                # числовые → числа
+            if col in num_cols:
+                # числовые
                 full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
                 full_df[col] = full_df[col].fillna(0)
+            else:
+                # категориальные
+                full_df[col] = full_df[col].astype(str)
+                full_df[col] = full_df[col].fillna("unknown")
 
         drop_pred = price_drop_model.predict(full_df)[0]
         drop_pred = max(drop_pred, 0)
