@@ -33,10 +33,10 @@ final_price_model.load_model(
 )
 
 # --- загрузка фичей ---
-with open("model/feature_columns.json") as f:
+with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
     feature_columns = json.load(f)
 
-with open("model/final_feature_columns.json") as f:
+with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
     final_feature_columns = json.load(f)
 
 # --- входные данные ---
