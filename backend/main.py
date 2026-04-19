@@ -3,21 +3,32 @@ from pydantic import BaseModel
 from catboost import CatBoostRegressor
 import json
 import pandas as pd
+from typing import Optional
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# --- CORS (чтобы работал frontend) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- загрузка моделей ---
 price_drop_model = CatBoostRegressor()
-price_drop_model.load_model("backend/model/catboost_price_drop.cbm")
+price_drop_model.load_model("model/catboost_price_drop.cbm")
 
 final_price_model = CatBoostRegressor()
-final_price_model.load_model("backend/model/catboost_final_price.cbm")
+final_price_model.load_model("model/catboost_final_price.cbm")
 
 # --- загрузка фичей ---
-with open("backend/model/feature_columns.json") as f:
+with open("model/feature_columns.json") as f:
     feature_columns = json.load(f)
 
-with open("backend/model/final_feature_columns.json") as f:
+with open("model/final_feature_columns.json") as f:
     final_feature_columns = json.load(f)
 
 # --- входные данные ---
@@ -25,28 +36,31 @@ class InputData(BaseModel):
     customer_price_rub: float
     delivery_region: str
     trade_type: str
-    electronic_trade_mode: str | None = None
+    electronic_trade_mode: Optional[str] = None
 
 
 # --- endpoint ---
 @app.post("/predict")
 def predict(data: InputData):
     
-    # превращаем в DataFrame
     df = pd.DataFrame([data.dict()])
     
-    # добавляем недостающие колонки
-    for col in feature_columns:
-        if col not in df.columns:
-            df[col] = None
+    # создаём полный DataFrame
+    full_df = pd.DataFrame([{col: None for col in feature_columns}])
     
-    df = df[feature_columns]
+    # заполняем известные значения
+    for col in df.columns:
+        if col in full_df.columns:
+            full_df.at[0, col] = df.at[0, col]
     
-    # --- предсказание снижения ---
-    drop_pred = price_drop_model.predict(df)[0]
+    # ВСЁ приводим к строкам (важно для CatBoost)
+    for col in full_df.columns:
+        full_df[col] = full_df[col].astype(str).fillna("missing")
+    
+    # --- предсказание ---
+    drop_pred = price_drop_model.predict(full_df)[0]
     drop_pred = max(drop_pred, 0)
     
-    # --- финальная цена через снижение ---
     final_price = data.customer_price_rub * (1 - drop_pred)
     
     return {
