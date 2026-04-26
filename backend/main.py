@@ -47,11 +47,6 @@ class InputData(BaseModel):
     delivery_city: Optional[str] = None
 
 
-@app.get("/")
-def root():
-    return {"status": "ok"}
-
-
 @app.post("/predict")
 def predict(data: InputData):
     try:
