@@ -47,6 +47,12 @@ class InputData(BaseModel):
     delivery_city: Optional[str] = None
     industry_scope: Optional[str] = None
 
+    is_electronic: Optional[int] = 0
+    has_bid_security: Optional[int] = 0
+    has_contract_security: Optional[int] = 0
+    has_purchase_code: Optional[int] = 0
+    national_regime_flag: Optional[int] = 0
+
 
 @app.post("/predict")
 def predict(data: InputData):
