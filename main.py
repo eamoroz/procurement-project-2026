@@ -46,6 +46,7 @@ class InputData(BaseModel):
     trading_platform: Optional[str] = None
     delivery_city: Optional[str] = None
     industry_scope: Optional[str] = None
+    publication_datetime: Optional[str] = None
 
     is_electronic: Optional[int] = 0
     has_bid_security: Optional[int] = 0
@@ -58,6 +59,19 @@ class InputData(BaseModel):
 def predict(data: InputData):
     try:
         df = pd.DataFrame([data.dict()])
+
+        # --- обработка даты ---
+        if data.publication_datetime:
+            dt = pd.to_datetime(data.publication_datetime)
+        
+            df["publication_month"] = int(dt.month)
+            df["publication_weekday"] = int(dt.weekday())
+            df["publication_hour"] = int(dt.hour)
+        else:
+            df["publication_month"] = 0
+            df["publication_weekday"] = 0
+            df["publication_hour"] = 0
+        
         full_df = df.reindex(columns=feature_columns)
 
         # 🔥 получаем реальные категориальные фичи из модели
