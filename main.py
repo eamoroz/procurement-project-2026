@@ -45,6 +45,7 @@ class InputData(BaseModel):
     electronic_trade_mode: Optional[str] = None
     trading_platform: Optional[str] = None
     delivery_city: Optional[str] = None
+    industry_scope: Optional[str] = None
 
 
 @app.post("/predict")
