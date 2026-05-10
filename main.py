@@ -60,7 +60,7 @@ class InputData(BaseModel):
     contract_security_rub: Optional[float] = 0
     contract_security_pct: Optional[float] = 0
     
-    bank_treasury_support: Optional[int] = 0
+    bank_treasury_support: Optional[str] = None
 
     has_purchase_code: Optional[int] = 0
     
