@@ -39,19 +39,40 @@ with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
 
 # --- вход ---
 class InputData(BaseModel):
+    
     customer_price_rub: float
-    delivery_region: str
-    trade_type: str
-    electronic_trade_mode: Optional[str] = None
-    trading_platform: Optional[str] = None
-    delivery_city: Optional[str] = None
+
+    level: Optional[int] = 0
     industry_scope: Optional[str] = None
+    trade_type: str
+    trading_platform: Optional[str] = None
+    electronic_trade_mode: Optional[str] = None
+    national_regime: Optional[str] = None
+    
+    delivery_region: str
+    delivery_city: Optional[str] = None
+
+    publication_name: Optional[str] = None
+    
+    bid_security_rub: Optional[float] = 0
+    bid_security_pct: Optional[float] = 0
+    contract_security_rub: Optional[float] = 0
+    contract_security_pct: Optional[float] = 0
+    
+    bank_treasury_support: Optional[int] = 0
+
+    has_purchase_code: Optional[int] = 0
+    
+    num_participants: Optional[int] = 0
+    
     publication_datetime: Optional[str] = None
+    applications_deadline_datetime: Optional[str] = None
+    applications_start_datetime: Optional[str] = None
+    trading_end_datetime: Optional[str] = None
 
     is_electronic: Optional[int] = 0
     has_bid_security: Optional[int] = 0
     has_contract_security: Optional[int] = 0
-    has_purchase_code: Optional[int] = 0
     national_regime_flag: Optional[int] = 0
 
 
@@ -71,10 +92,38 @@ def predict(data: InputData):
             df["publication_month"] = 0
             df["publication_weekday"] = 0
             df["publication_hour"] = 0
+
+        # --- timestamp фичи ---
+        if data.publication_datetime:
+            df["publication_datetime_ts"] = pd.to_datetime(
+                data.publication_datetime
+            ).timestamp()
+        else:
+            df["publication_datetime_ts"] = 0
+
+        if data.applications_deadline_datetime:
+            df["applications_deadline_datetime_ts"] = pd.to_datetime(
+                data.applications_deadline_datetime
+            ).timestamp()
+        else:
+            df["applications_deadline_datetime_ts"] = 0
+
+        if data.applications_start_datetime:
+            df["applications_start_datetime_ts"] = pd.to_datetime(
+                data.applications_start_datetime
+            ).timestamp()
+        else:
+            df["applications_start_datetime_ts"] = 0
+
+        if data.trading_end_datetime:
+            df["trading_end_datetime_ts"] = pd.to_datetime(
+                data.trading_end_datetime
+            ).timestamp()
+        else:
+            df["trading_end_datetime_ts"] = 0
         
         full_df = df.reindex(columns=feature_columns)
 
-        # 🔥 получаем реальные категориальные фичи из модели
         cat_feature_indices = price_drop_model.get_cat_feature_indices()
         cat_cols = [feature_columns[i] for i in cat_feature_indices]
 
