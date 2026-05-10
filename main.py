@@ -6,6 +6,7 @@ import pandas as pd
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import traceback
 
 app = FastAPI()
 
@@ -148,4 +149,5 @@ def predict(data: InputData):
         }
 
     except Exception as e:
+        print(traceback.format_exc())
         return {"error": str(e)}
