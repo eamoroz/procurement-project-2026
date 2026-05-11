@@ -77,68 +77,71 @@ class InputData(BaseModel):
     national_regime_flag: Optional[int] = 0
 
 
+def build_features(data: InputData):
+    df = pd.DataFrame([data.dict()])
+
+    # --- обработка publication_datetime ---
+    if data.publication_datetime:
+        dt = pd.to_datetime(data.publication_datetime)
+
+        df["publication_month"] = int(dt.month)
+        df["publication_weekday"] = int(dt.weekday())
+        df["publication_hour"] = int(dt.hour)
+    else:
+        df["publication_month"] = 0
+        df["publication_weekday"] = 0
+        df["publication_hour"] = 0
+
+    # --- timestamp фичи ---
+    datetime_columns = {
+        "publication_datetime": "publication_datetime_ts",
+        "applications_deadline_datetime": "applications_deadline_datetime_ts",
+        "applications_start_datetime": "applications_start_datetime_ts",
+        "trading_end_datetime": "trading_end_datetime_ts",
+    }
+
+    for source_col, target_col in datetime_columns.items():
+
+        value = getattr(data, source_col)
+
+        if value:
+            df[target_col] = pd.to_datetime(value).timestamp()
+        else:
+            df[target_col] = 0
+
+    # --- приводим к нужным колонкам ---
+    full_df = df.reindex(columns=feature_columns)
+
+    # --- catboost categorical columns ---
+    cat_feature_indices = price_drop_model.get_cat_feature_indices()
+    cat_cols = [feature_columns[i] for i in cat_feature_indices]
+
+    # --- типизация ---
+    for col in full_df.columns:
+
+        if col in cat_cols:
+            full_df[col] = full_df[col].astype(str)
+            full_df[col] = full_df[col].fillna("unknown")
+
+        else:
+            full_df[col] = pd.to_numeric(
+                full_df[col],
+                errors="coerce"
+            )
+
+            full_df[col] = full_df[col].fillna(0)
+
+    return full_df
+
+
 @app.post("/predict")
 def predict(data: InputData):
+
     try:
-        df = pd.DataFrame([data.dict()])
-
-        # --- обработка даты ---
-        if data.publication_datetime:
-            dt = pd.to_datetime(data.publication_datetime)
-        
-            df["publication_month"] = int(dt.month)
-            df["publication_weekday"] = int(dt.weekday())
-            df["publication_hour"] = int(dt.hour)
-        else:
-            df["publication_month"] = 0
-            df["publication_weekday"] = 0
-            df["publication_hour"] = 0
-
-        # --- timestamp фичи ---
-        if data.publication_datetime:
-            df["publication_datetime_ts"] = pd.to_datetime(
-                data.publication_datetime
-            ).timestamp()
-        else:
-            df["publication_datetime_ts"] = 0
-
-        if data.applications_deadline_datetime:
-            df["applications_deadline_datetime_ts"] = pd.to_datetime(
-                data.applications_deadline_datetime
-            ).timestamp()
-        else:
-            df["applications_deadline_datetime_ts"] = 0
-
-        if data.applications_start_datetime:
-            df["applications_start_datetime_ts"] = pd.to_datetime(
-                data.applications_start_datetime
-            ).timestamp()
-        else:
-            df["applications_start_datetime_ts"] = 0
-
-        if data.trading_end_datetime:
-            df["trading_end_datetime_ts"] = pd.to_datetime(
-                data.trading_end_datetime
-            ).timestamp()
-        else:
-            df["trading_end_datetime_ts"] = 0
-        
-        full_df = df.reindex(columns=feature_columns)
-
-        cat_feature_indices = price_drop_model.get_cat_feature_indices()
-        cat_cols = [feature_columns[i] for i in cat_feature_indices]
-
-        for col in full_df.columns:
-            if col in cat_cols:
-                # категориальные → строки
-                full_df[col] = full_df[col].astype(str)
-                full_df[col] = full_df[col].fillna("unknown")
-            else:
-                # числовые → строго числа
-                full_df[col] = pd.to_numeric(full_df[col], errors="coerce")
-                full_df[col] = full_df[col].fillna(0)
+        full_df = build_features(data)
 
         drop_pred = price_drop_model.predict(full_df)[0]
+
         drop_pred = max(drop_pred, 0)
 
         final_price = data.customer_price_rub * (1 - drop_pred)
@@ -150,4 +153,7 @@ def predict(data: InputData):
 
     except Exception as e:
         print(traceback.format_exc())
-        return {"error": str(e)}
+
+        return {
+            "error": str(e)
+        }
