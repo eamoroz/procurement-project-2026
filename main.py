@@ -26,17 +26,10 @@ price_drop_model.load_model(
     os.path.join(BASE_DIR, "model/catboost_price_drop.cbm")
 )
 
-final_price_model = CatBoostRegressor()
-final_price_model.load_model(
-    os.path.join(BASE_DIR, "model/catboost_final_price.cbm")
-)
-
 # --- фичи ---
 with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
     feature_columns = json.load(f)
 
-with open(os.path.join(BASE_DIR, "model/final_feature_columns.json")) as f:
-    final_feature_columns = json.load(f)
 
 # --- вход ---
 class InputData(BaseModel):
