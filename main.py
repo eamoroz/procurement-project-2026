@@ -35,6 +35,9 @@ dumping_model.load_model(
 with open(os.path.join(BASE_DIR, "model/feature_columns.json")) as f:
     feature_columns = json.load(f)
 
+with open(os.path.join(BASE_DIR, "model/cls_feature_columns.json")) as f:
+    cls_feature_columns = json.load(f)
+
 
 # --- вход ---
 class InputData(BaseModel):
@@ -75,7 +78,7 @@ class InputData(BaseModel):
     national_regime_flag: Optional[int] = 0
 
 
-def build_features(data: InputData, model):
+def build_features(data: InputData, model, feature_cols):
     df = pd.DataFrame([data.dict()])
 
     # --- обработка publication_datetime ---
@@ -108,11 +111,11 @@ def build_features(data: InputData, model):
             df[target_col] = 0
 
     # --- приводим к нужным колонкам ---
-    full_df = df.reindex(columns=feature_columns)
+    full_df = df.reindex(columns=feature_cols)
 
     # --- catboost categorical columns ---
     cat_feature_indices = model.get_cat_feature_indices()
-    cat_cols = [feature_columns[i] for i in cat_feature_indices]
+    cat_cols = [feature_cols[i] for i in cat_feature_indices]
 
     # --- типизация ---
     for col in full_df.columns:
@@ -136,7 +139,7 @@ def build_features(data: InputData, model):
 def predict(data: InputData):
 
     try:
-        full_df = build_features(data, price_drop_model)
+        full_df = build_features(data, price_drop_model, feature_columns)
 
         drop_pred = price_drop_model.predict(full_df)[0]
 
@@ -160,7 +163,7 @@ def predict(data: InputData):
 def predict_dumping(data: InputData):
 
     try:
-        full_df = build_features(data, dumping_model)
+        full_df = build_features(data, dumping_model, cls_feature_columns)
 
         dumping_proba = dumping_model.predict_proba(full_df)[0][1]
 
