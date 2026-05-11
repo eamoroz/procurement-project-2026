@@ -75,7 +75,7 @@ class InputData(BaseModel):
     national_regime_flag: Optional[int] = 0
 
 
-def build_features(data: InputData):
+def build_features(data: InputData, model):
     df = pd.DataFrame([data.dict()])
 
     # --- обработка publication_datetime ---
@@ -111,7 +111,7 @@ def build_features(data: InputData):
     full_df = df.reindex(columns=feature_columns)
 
     # --- catboost categorical columns ---
-    cat_feature_indices = price_drop_model.get_cat_feature_indices()
+    cat_feature_indices = model.get_cat_feature_indices()
     cat_cols = [feature_columns[i] for i in cat_feature_indices]
 
     # --- типизация ---
@@ -136,7 +136,7 @@ def build_features(data: InputData):
 def predict(data: InputData):
 
     try:
-        full_df = build_features(data)
+        full_df = build_features(data, price_drop_model)
 
         drop_pred = price_drop_model.predict(full_df)[0]
 
@@ -160,7 +160,7 @@ def predict(data: InputData):
 def predict_dumping(data: InputData):
 
     try:
-        full_df = build_features(data)
+        full_df = build_features(data, dumping_model)
 
         dumping_proba = dumping_model.predict_proba(full_df)[0][1]
 
