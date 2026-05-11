@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, CatBoostClassifier
 import json
 import pandas as pd
 from typing import Optional
@@ -24,6 +24,11 @@ BASE_DIR = os.path.dirname(__file__)
 price_drop_model = CatBoostRegressor()
 price_drop_model.load_model(
     os.path.join(BASE_DIR, "model/catboost_price_drop.cbm")
+)
+
+dumping_model = CatBoostClassifier()
+dumping_model.load_model(
+    os.path.join(BASE_DIR, "model/catboost_dumping_classifier.cbm")
 )
 
 # --- фичи ---
@@ -145,6 +150,29 @@ def predict(data: InputData):
         }
 
     except Exception as e:
+        print(traceback.format_exc())
+
+        return {
+            "error": str(e)
+        }
+
+@app.post("/predict_dumping")
+def predict_dumping(data: InputData):
+
+    try:
+        full_df = build_features(data)
+
+        dumping_proba = dumping_model.predict_proba(full_df)[0][1]
+
+        dumping_pred = dumping_model.predict(full_df)[0]
+
+        return {
+            "dumping_probability": float(dumping_proba),
+            "is_dumping_predicted": int(dumping_pred)
+        }
+
+    except Exception as e:
+
         print(traceback.format_exc())
 
         return {
