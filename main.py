@@ -111,21 +111,86 @@ def build_features(data: InputData, model, feature_cols):
         df["publication_hour"] = 0
 
     # --- timestamp фичи ---
+    
     datetime_columns = {
         "publication_datetime": "publication_datetime_ts",
         "applications_deadline_datetime": "applications_deadline_datetime_ts",
         "applications_start_datetime": "applications_start_datetime_ts",
         "trading_end_datetime": "trading_end_datetime_ts",
     }
-
+    
+    parsed_dates = {}
+    
     for source_col, target_col in datetime_columns.items():
-
+    
         value = getattr(data, source_col)
-
+    
         if value:
-            df[target_col] = pd.to_datetime(value).timestamp()
+    
+            parsed_dt = pd.to_datetime(value)
+    
+            parsed_dates[source_col] = parsed_dt
+    
+            df[target_col] = parsed_dt.timestamp()
+    
         else:
+    
+            parsed_dates[source_col] = None
+    
             df[target_col] = 0
+    
+    
+    # --- derived datetime features ---
+    
+    publication_dt = parsed_dates["publication_datetime"]
+    
+    deadline_dt = parsed_dates["applications_deadline_datetime"]
+    
+    start_dt = parsed_dates["applications_start_datetime"]
+    
+    trading_end_dt = parsed_dates["trading_end_datetime"]
+    
+    
+    # days_to_deadline
+    
+    if publication_dt and deadline_dt:
+    
+        df["days_to_deadline"] = (
+            (deadline_dt - publication_dt)
+            .total_seconds() / 86400.0
+        )
+    
+    else:
+    
+        df["days_to_deadline"] = 0
+    
+    
+    # days_from_start_to_deadline
+    
+    if start_dt and deadline_dt:
+    
+        df["days_from_start_to_deadline"] = (
+            (deadline_dt - start_dt)
+            .total_seconds() / 86400.0
+        )
+    
+    else:
+    
+        df["days_from_start_to_deadline"] = 0
+    
+    
+    # days_to_trading_end
+    
+    if publication_dt and trading_end_dt:
+    
+        df["days_to_trading_end"] = (
+            (trading_end_dt - publication_dt)
+            .total_seconds() / 86400.0
+        )
+    
+    else:
+    
+        df["days_to_trading_end"] = 0
 
     # --- приводим к нужным колонкам ---
     full_df = df.reindex(columns=feature_cols)
