@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from catboost import CatBoostRegressor, CatBoostClassifier
 import json
+import numpy as np
 import pandas as pd
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,6 +81,22 @@ class InputData(BaseModel):
 
 def build_features(data: InputData, model, feature_cols):
     df = pd.DataFrame([data.dict()])
+
+    # --- derived features ---
+
+    df["has_bid_security"] = int(
+        data.bid_security_rub > 0
+        or data.bid_security_pct > 0
+    )
+    
+    df["has_contract_security"] = int(
+        data.contract_security_rub > 0
+        or data.contract_security_pct > 0
+    )
+    
+    df["customer_price_log1p"] = float(
+        np.log1p(data.customer_price_rub)
+    )
 
     # --- обработка publication_datetime ---
     if data.publication_datetime:
